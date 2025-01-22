@@ -349,21 +349,175 @@
 
 // export default App;
 
-import { useEffect, useState, useRef } from 'react';
+//-------------------------------------------------------------------------------------------
+// import { useEffect, useState, useRef } from 'react';
+// import { OpenVidu } from 'openvidu-browser';
+// import axios from 'axios';
+// import UserVideoComponent from './UserVideoComponent';
+
+// const APPLICATION_SERVER_URL = process.env.NODE_ENV === 'production' ? '' : 'https://demos.openvidu.io/';
+
+// const App = () => {
+//     const [session, setSession] = useState(null);
+//     const [subscribers, setSubscribers] = useState([]);
+//     const [publisher, setPublisher] = useState(null);
+//     const [mainStreamManager, setMainStreamManager] = useState(null);
+//     const [currentVideoDevice, setCurrentVideoDevice] = useState(null);
+//     const [mySessionId, setMySessionId] = useState('SessionA');
+//     const [myUserName, setMyUserName] = useState(`Participant${Math.floor(Math.random() * 100)}`);
+//     const OV = useRef(null);
+
+//     useEffect(() => {
+//         const handleBeforeUnload = () => leaveSession();
+//         window.addEventListener('beforeunload', handleBeforeUnload);
+//         return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+//     }, []);
+
+//     const joinSession = async () => {
+//         OV.current = new OpenVidu();
+//         const newSession = OV.current.initSession();
+
+//         newSession.on('streamCreated', (event) => {
+//             const subscriber = newSession.subscribe(event.stream, undefined);
+//             setSubscribers((prev) => [...prev, subscriber]);
+//         });
+
+//         newSession.on('streamDestroyed', (event) => {
+//             setSubscribers((prev) => prev.filter(sub => sub !== event.stream.streamManager));
+//         });
+
+//         try {
+//             const token = await getToken();
+//             await newSession.connect(token, { clientData: myUserName });
+//             const newPublisher = await OV.current.initPublisherAsync(undefined, {
+//                 audioSource: undefined,
+//                 videoSource: undefined,
+//                 publishAudio: true,
+//                 publishVideo: true,
+//                 resolution: '640x480',
+//                 frameRate: 30,
+//                 insertMode: 'APPEND',
+//                 mirror: false,
+//             });
+//             await newSession.publish(newPublisher);
+
+//             const devices = await OV.current.getDevices();
+//             const videoDevices = devices.filter(device => device.kind === 'videoinput');
+//             const currentDeviceId = newPublisher.stream.getMediaStream().getVideoTracks()[0].getSettings().deviceId;
+//             const currentDevice = videoDevices.find(device => device.deviceId === currentDeviceId);
+
+//             setSession(newSession);
+//             setPublisher(newPublisher);
+//             setMainStreamManager(newPublisher);
+//             setCurrentVideoDevice(currentDevice);
+//         } catch (error) {
+//             console.error('Error connecting to session:', error);
+//         }
+//     };
+
+//     const leaveSession = () => {
+//         if (session) session.disconnect();
+//         OV.current = null;
+//         setSession(null);
+//         setSubscribers([]);
+//         setPublisher(null);
+//         setMainStreamManager(null);
+//     };
+
+//     const switchCamera = async () => {
+//         if (!OV.current || !currentVideoDevice) return;
+//         const devices = await OV.current.getDevices();
+//         const videoDevices = devices.filter(device => device.kind === 'videoinput');
+//         const newDevice = videoDevices.find(device => device.deviceId !== currentVideoDevice.deviceId);
+//         if (!newDevice) return;
+
+//         const newPublisher = OV.current.initPublisher(undefined, {
+//             videoSource: newDevice.deviceId,
+//             publishAudio: true,
+//             publishVideo: true,
+//             mirror: true,
+//         });
+
+//         await session.unpublish(mainStreamManager);
+//         await session.publish(newPublisher);
+
+//         setPublisher(newPublisher);
+//         setMainStreamManager(newPublisher);
+//         setCurrentVideoDevice(newDevice);
+//     };
+
+//     const getToken = async () => {
+//         const sessionId = await createSession(mySessionId);
+//         return await createToken(sessionId);
+//     };
+
+//     const createSession = async (sessionId) => {
+//         const response = await axios.post(`${APPLICATION_SERVER_URL}api/sessions`, { customSessionId: sessionId }, {
+//             headers: { 'Content-Type': 'application/json' },
+//         });
+//         return response.data;
+//     };
+
+//     const createToken = async (sessionId) => {
+//         const response = await axios.post(`${APPLICATION_SERVER_URL}api/sessions/${sessionId}/connections`, {}, {
+//             headers: { 'Content-Type': 'application/json' },
+//         });
+//         return response.data;
+//     };
+
+//     return (
+//         <div className="container">
+//             {!session ? (
+//                 <div id="join">
+//                     <h1>Join a video session</h1>
+//                     <form onSubmit={(e) => { e.preventDefault(); joinSession(); }}>
+//                         <input type="text" value={myUserName} onChange={(e) => setMyUserName(e.target.value)} required />
+//                         <input type="text" value={mySessionId} onChange={(e) => setMySessionId(e.target.value)} required />
+//                         <button type="submit">JOIN</button>
+//                     </form>
+//                 </div>
+//             ) : (
+//                 <div id="session">
+//                     <h1>{mySessionId}</h1>
+//                     <button onClick={leaveSession}>Leave session</button>
+//                     <button onClick={switchCamera}>Switch Camera</button>
+//                     {mainStreamManager && <UserVideoComponent streamManager={mainStreamManager} />}
+//                     <div id="video-container">
+//                         {publisher && (
+//                             <div onClick={() => setMainStreamManager(publisher)}>
+//                                 <UserVideoComponent streamManager={publisher} />
+//                             </div>
+//                         )}
+//                         {subscribers.map((sub, i) => (
+//                             <div key={sub.id} onClick={() => setMainStreamManager(sub)}>
+//                                 <UserVideoComponent streamManager={sub} />
+//                             </div>
+//                         ))}
+//                     </div>
+//                 </div>
+//             )}
+//         </div>
+//     );
+// };
+
+// export default App;
+//---------------------------------------------------------------------------------------------------------
 import { OpenVidu } from 'openvidu-browser';
 import axios from 'axios';
+import React, { useState, useEffect, useRef } from 'react';
+import './App.css';
 import UserVideoComponent from './UserVideoComponent';
 
 const APPLICATION_SERVER_URL = process.env.NODE_ENV === 'production' ? '' : 'https://demos.openvidu.io/';
 
 const App = () => {
+    const [sessionId, setSessionId] = useState('SessionA');
+    const [userName, setUserName] = useState(`Participant${Math.floor(Math.random() * 100)}`);
     const [session, setSession] = useState(null);
-    const [subscribers, setSubscribers] = useState([]);
-    const [publisher, setPublisher] = useState(null);
     const [mainStreamManager, setMainStreamManager] = useState(null);
+    const [publisher, setPublisher] = useState(null);
+    const [subscribers, setSubscribers] = useState([]);
     const [currentVideoDevice, setCurrentVideoDevice] = useState(null);
-    const [mySessionId, setMySessionId] = useState('SessionA');
-    const [myUserName, setMyUserName] = useState(`Participant${Math.floor(Math.random() * 100)}`);
     const OV = useRef(null);
 
     useEffect(() => {
@@ -372,7 +526,8 @@ const App = () => {
         return () => window.removeEventListener('beforeunload', handleBeforeUnload);
     }, []);
 
-    const joinSession = async () => {
+    const joinSession = async (event) => {
+        event.preventDefault();
         OV.current = new OpenVidu();
         const newSession = OV.current.initSession();
 
@@ -387,7 +542,8 @@ const App = () => {
 
         try {
             const token = await getToken();
-            await newSession.connect(token, { clientData: myUserName });
+            await newSession.connect(token, { clientData: userName });
+            
             const newPublisher = await OV.current.initPublisherAsync(undefined, {
                 audioSource: undefined,
                 videoSource: undefined,
@@ -398,55 +554,65 @@ const App = () => {
                 insertMode: 'APPEND',
                 mirror: false,
             });
-            await newSession.publish(newPublisher);
 
+            newSession.publish(newPublisher);
             const devices = await OV.current.getDevices();
             const videoDevices = devices.filter(device => device.kind === 'videoinput');
             const currentDeviceId = newPublisher.stream.getMediaStream().getVideoTracks()[0].getSettings().deviceId;
             const currentDevice = videoDevices.find(device => device.deviceId === currentDeviceId);
-
+            
             setSession(newSession);
-            setPublisher(newPublisher);
             setMainStreamManager(newPublisher);
+            setPublisher(newPublisher);
             setCurrentVideoDevice(currentDevice);
         } catch (error) {
-            console.error('Error connecting to session:', error);
+            console.error('Error connecting to the session:', error);
         }
     };
 
     const leaveSession = () => {
-        if (session) session.disconnect();
+        if (session) {
+            session.disconnect();
+        }
         OV.current = null;
         setSession(null);
         setSubscribers([]);
-        setPublisher(null);
+        setSessionId('SessionA');
+        setUserName(`Participant${Math.floor(Math.random() * 100)}`);
         setMainStreamManager(null);
+        setPublisher(null);
     };
 
     const switchCamera = async () => {
-        if (!OV.current || !currentVideoDevice) return;
-        const devices = await OV.current.getDevices();
-        const videoDevices = devices.filter(device => device.kind === 'videoinput');
-        const newDevice = videoDevices.find(device => device.deviceId !== currentVideoDevice.deviceId);
-        if (!newDevice) return;
-
-        const newPublisher = OV.current.initPublisher(undefined, {
-            videoSource: newDevice.deviceId,
-            publishAudio: true,
-            publishVideo: true,
-            mirror: true,
-        });
-
-        await session.unpublish(mainStreamManager);
-        await session.publish(newPublisher);
-
-        setPublisher(newPublisher);
-        setMainStreamManager(newPublisher);
-        setCurrentVideoDevice(newDevice);
+        try {
+            const devices = await OV.current.getDevices();
+            const videoDevices = devices.filter(device => device.kind === 'videoinput');
+            
+            if (videoDevices.length > 1) {
+                const newVideoDevice = videoDevices.find(device => device.deviceId !== currentVideoDevice.deviceId);
+                if (newVideoDevice) {
+                    const newPublisher = OV.current.initPublisher(undefined, {
+                        videoSource: newVideoDevice.deviceId,
+                        publishAudio: true,
+                        publishVideo: true,
+                        mirror: true
+                    });
+                    
+                    await session.unpublish(publisher);
+                    await session.publish(newPublisher);
+                    
+                    setCurrentVideoDevice(newVideoDevice);
+                    setMainStreamManager(newPublisher);
+                    setPublisher(newPublisher);
+                }
+            }
+        } catch (e) {
+            console.error(e);
+        }
     };
 
     const getToken = async () => {
-        const sessionId = await createSession(mySessionId);
+        const sessionId = await createSession(sessionId);
         return await createToken(sessionId);
     };
 
@@ -468,29 +634,38 @@ const App = () => {
         <div className="container">
             {!session ? (
                 <div id="join">
-                    <h1>Join a video session</h1>
-                    <form onSubmit={(e) => { e.preventDefault(); joinSession(); }}>
-                        <input type="text" value={myUserName} onChange={(e) => setMyUserName(e.target.value)} required />
-                        <input type="text" value={mySessionId} onChange={(e) => setMySessionId(e.target.value)} required />
-                        <button type="submit">JOIN</button>
-                    </form>
+                    <div id="img-div">
+                        <img src="resources/images/openvidu_grey_bg_transp_cropped.png" alt="OpenVidu logo" />
+                    </div>
+                    <div id="join-dialog" className="jumbotron vertical-center">
+                        <h1>Join a video session</h1>
+                        <form className="form-group" onSubmit={joinSession}>
+                            <p>
+                                <label>Participant:</label>
+                                <input className="form-control" type="text" value={userName} onChange={(e) => setUserName(e.target.value)} required />
+                            </p>
+                            <p>
+                                <label>Session:</label>
+                                <input className="form-control" type="text" value={sessionId} onChange={(e) => setSessionId(e.target.value)} required />
+                            </p>
+                            <p className="text-center">
+                                <button className="btn btn-lg btn-success" type="submit">JOIN</button>
+                            </p>
+                        </form>
+                    </div>
                 </div>
             ) : (
                 <div id="session">
-                    <h1>{mySessionId}</h1>
-                    <button onClick={leaveSession}>Leave session</button>
-                    <button onClick={switchCamera}>Switch Camera</button>
+                    <div id="session-header">
+                        <h1 id="session-title">{sessionId}</h1>
+                        <button className="btn btn-danger" onClick={leaveSession}>Leave session</button>
+                        <button className="btn btn-success" onClick={switchCamera}>Switch Camera</button>
+                    </div>
                     {mainStreamManager && <UserVideoComponent streamManager={mainStreamManager} />}
                     <div id="video-container">
-                        {publisher && (
-                            <div onClick={() => setMainStreamManager(publisher)}>
-                                <UserVideoComponent streamManager={publisher} />
-                            </div>
-                        )}
+                        {publisher && <UserVideoComponent streamManager={publisher} />}
                         {subscribers.map((sub, i) => (
-                            <div key={sub.id} onClick={() => setMainStreamManager(sub)}>
-                                <UserVideoComponent streamManager={sub} />
-                            </div>
+                            <UserVideoComponent key={i} streamManager={sub} />
                         ))}
                     </div>
                 </div>
