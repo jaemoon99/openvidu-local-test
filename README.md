@@ -1,6 +1,6 @@
 # OpenVidu 가이드
 
-> !! 도커, maven, npm 필요 !!
+> !! 준비물 : Linux(Ubuntu), docker, maven, npm !!
 
 ## 방법 1
 ### 1. 프로젝트 Clone
