@@ -502,18 +502,19 @@
 
 // export default App;
 //---------------------------------------------------------------------------------------------------------
+
+import { useState, useEffect, useRef } from 'react';
 import { OpenVidu } from 'openvidu-browser';
 import axios from 'axios';
-import React, { useState, useEffect, useRef } from 'react';
 import './App.css';
 import UserVideoComponent from './UserVideoComponent';
 
 const APPLICATION_SERVER_URL = process.env.NODE_ENV === 'production' ? '' : 'https://demos.openvidu.io/';
 
-const App = () => {
-    const [sessionId, setSessionId] = useState('SessionA');
-    const [userName, setUserName] = useState(`Participant${Math.floor(Math.random() * 100)}`);
+function App() {
     const [session, setSession] = useState(null);
+    const [mySessionId, setMySessionId] = useState('SessionA');
+    const [myUserName, setMyUserName] = useState(`Participant${Math.floor(Math.random() * 100)}`);
     const [mainStreamManager, setMainStreamManager] = useState(null);
     const [publisher, setPublisher] = useState(null);
     const [subscribers, setSubscribers] = useState([]);
@@ -521,10 +522,15 @@ const App = () => {
     const OV = useRef(null);
 
     useEffect(() => {
-        const handleBeforeUnload = () => leaveSession();
-        window.addEventListener('beforeunload', handleBeforeUnload);
-        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+        window.addEventListener('beforeunload', leaveSession);
+        return () => {
+            window.removeEventListener('beforeunload', leaveSession);
+        };
     }, []);
+
+    const handleMainVideoStream = (stream) => {
+        setMainStreamManager(stream);
+    };
 
     const joinSession = async (event) => {
         event.preventDefault();
@@ -541,9 +547,8 @@ const App = () => {
         });
 
         try {
-            const token = await getToken();
-            await newSession.connect(token, { clientData: userName });
-            
+            const token = await getToken(mySessionId);
+            await newSession.connect(token, { clientData: myUserName });
             const newPublisher = await OV.current.initPublisherAsync(undefined, {
                 audioSource: undefined,
                 videoSource: undefined,
@@ -558,15 +563,15 @@ const App = () => {
             newSession.publish(newPublisher);
             const devices = await OV.current.getDevices();
             const videoDevices = devices.filter(device => device.kind === 'videoinput');
-            const currentDeviceId = newPublisher.stream.getMediaStream().getVideoTracks()[0].getSettings().deviceId;
-            const currentDevice = videoDevices.find(device => device.deviceId === currentDeviceId);
-            
+            const currentVideoDeviceId = newPublisher.stream.getMediaStream().getVideoTracks()[0].getSettings().deviceId;
+            const currentDevice = videoDevices.find(device => device.deviceId === currentVideoDeviceId);
+
             setSession(newSession);
             setMainStreamManager(newPublisher);
             setPublisher(newPublisher);
             setCurrentVideoDevice(currentDevice);
         } catch (error) {
-            console.error('Error connecting to the session:', error);
+            console.error('Error connecting to session:', error);
         }
     };
 
@@ -577,8 +582,8 @@ const App = () => {
         OV.current = null;
         setSession(null);
         setSubscribers([]);
-        setSessionId('SessionA');
-        setUserName(`Participant${Math.floor(Math.random() * 100)}`);
+        setMySessionId('SessionA');
+        setMyUserName(`Participant${Math.floor(Math.random() * 100)}`);
         setMainStreamManager(null);
         setPublisher(null);
     };
@@ -587,7 +592,7 @@ const App = () => {
         try {
             const devices = await OV.current.getDevices();
             const videoDevices = devices.filter(device => device.kind === 'videoinput');
-            
+
             if (videoDevices.length > 1) {
                 const newVideoDevice = videoDevices.find(device => device.deviceId !== currentVideoDevice.deviceId);
                 if (newVideoDevice) {
@@ -597,37 +602,27 @@ const App = () => {
                         publishVideo: true,
                         mirror: true
                     });
-                    
-                    await session.unpublish(publisher);
+
+                    await session.unpublish(mainStreamManager);
                     await session.publish(newPublisher);
-                    
+
                     setCurrentVideoDevice(newVideoDevice);
                     setMainStreamManager(newPublisher);
                     setPublisher(newPublisher);
                 }
             }
-        } catch (e) {
-            console.error(e);
+        } catch (error) {
+            console.error('Error switching camera:', error);
         }
     };
 
-    const getToken = async () => {
-        const sessionId = await createSession(sessionId);
-        return await createToken(sessionId);
-    };
-
-    const createSession = async (sessionId) => {
+    const getToken = async (sessionId) => {
         const response = await axios.post(`${APPLICATION_SERVER_URL}api/sessions`, { customSessionId: sessionId }, {
             headers: { 'Content-Type': 'application/json' },
         });
-        return response.data;
-    };
-
-    const createToken = async (sessionId) => {
-        const response = await axios.post(`${APPLICATION_SERVER_URL}api/sessions/${sessionId}/connections`, {}, {
+        return (await axios.post(`${APPLICATION_SERVER_URL}api/sessions/${response.data}/connections`, {}, {
             headers: { 'Content-Type': 'application/json' },
-        });
-        return response.data;
+        })).data;
     };
 
     return (
@@ -641,15 +636,15 @@ const App = () => {
                         <h1>Join a video session</h1>
                         <form className="form-group" onSubmit={joinSession}>
                             <p>
-                                <label>Participant:</label>
-                                <input className="form-control" type="text" value={userName} onChange={(e) => setUserName(e.target.value)} required />
+                                <label>Participant: </label>
+                                <input className="form-control" type="text" value={myUserName} onChange={(e) => setMyUserName(e.target.value)} required />
                             </p>
                             <p>
-                                <label>Session:</label>
-                                <input className="form-control" type="text" value={sessionId} onChange={(e) => setSessionId(e.target.value)} required />
+                                <label>Session: </label>
+                                <input className="form-control" type="text" value={mySessionId} onChange={(e) => setMySessionId(e.target.value)} required />
                             </p>
                             <p className="text-center">
-                                <button className="btn btn-lg btn-success" type="submit">JOIN</button>
+                                <input className="btn btn-lg btn-success" type="submit" value="JOIN" />
                             </p>
                         </form>
                     </div>
@@ -657,21 +652,21 @@ const App = () => {
             ) : (
                 <div id="session">
                     <div id="session-header">
-                        <h1 id="session-title">{sessionId}</h1>
-                        <button className="btn btn-danger" onClick={leaveSession}>Leave session</button>
-                        <button className="btn btn-success" onClick={switchCamera}>Switch Camera</button>
+                        <h1 id="session-title">{mySessionId}</h1>
+                        <button className="btn btn-large btn-danger" onClick={leaveSession}>Leave session</button>
+                        <button className="btn btn-large btn-success" onClick={switchCamera}>Switch Camera</button>
                     </div>
                     {mainStreamManager && <UserVideoComponent streamManager={mainStreamManager} />}
                     <div id="video-container">
-                        {publisher && <UserVideoComponent streamManager={publisher} />}
+                        {publisher && <UserVideoComponent streamManager={publisher} onClick={() => handleMainVideoStream(publisher)} />}
                         {subscribers.map((sub, i) => (
-                            <UserVideoComponent key={i} streamManager={sub} />
+                            <UserVideoComponent key={sub.id} streamManager={sub} onClick={() => handleMainVideoStream(sub)} />
                         ))}
                     </div>
                 </div>
             )}
         </div>
     );
-};
+}
 
 export default App;
