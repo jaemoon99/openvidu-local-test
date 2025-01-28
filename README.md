@@ -21,7 +21,7 @@ mvn spring-boot:run
 
 ### 3. Client 실행
 ```bash
-cd ../openvidu-react/
+cd openvidu-local-test/openvidu-react
 npm install
 npm start
 ```
